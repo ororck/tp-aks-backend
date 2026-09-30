@@ -120,3 +120,46 @@ associated modules/questions (a dedicated Flyway migration, generated from the s
 - Provisioning Azure infrastructure (App Service, Static Web App, PostgreSQL Flexible Server)
 - Importing the real question content (supplied separately, converted into Flyway migrations).
 
+
+## Architecture applicative
+
+```mermaid
+flowchart LR
+  U[Navigateur] -->|HTTP| I[Ingress managé]
+  I --> F[frontend nginx :8080]
+  F -->|/api/| B[backend Spring Boot :8080]
+  B --> P[(PostgreSQL)]
+  B --> R[(Redis)]
+  B --> S[(Blob Storage)]
+```
+
+Le backend n'est joignable que depuis le frontend (NetworkPolicy sur le port
+8080). La configuration passe par des variables d'environnement (profil `aks`).
+
+## Déploiement sur AKS
+
+Le workflow `deploy.yml` est déclenché à la main (`workflow_dispatch`) : login
+Azure par OIDC, ouverture temporaire des pare-feux, build et push de l'image,
+application des manifests `k8s/`, fermeture des pare-feux. Les ressources sont
+retrouvées par tags (`owner`, `component`), rien n'est codé en dur.
+
+## DevSecOps
+
+| Workflow | Outil | Rôle | Bloquant ? | Justification |
+|---|---|---|---|---|
+| `sast` | CodeQL | Analyse statique du code source | Non (résultats dans Security > Code scanning) | La doc GitHub traite les alertes comme des résultats à trier dans l'onglet Security, avec vérification « Code scanning results » sur les PR. |
+| `sca` | OSV-Scanner | Dépendances vulnérables connues | Non pour l'instant | Arriéré de vulnérabilités à solder lors de la remédiation (jour 2), puis le scan deviendra bloquant. Rapport dans le Job Summary. |
+| `secrets` | gitleaks (binaire `gitleaks dir . --redact -v`) | Secrets dans le code | Oui | Un secret commité est un incident, code de sortie 1 documenté par gitleaks. `--redact` masque la valeur. |
+| `container-iac` | Trivy | Misconfigurations (Dockerfile, k8s) et CVE de l'image (paquets OS) | Oui : HIGH et CRITICAL | Seuil recommandé par Trivy pour un gate CI ; `--ignore-unfixed` écarte ce qu'on ne peut pas corriger ; les bibliothèques applicatives sont couvertes par `sca`. |
+| `sonarcloud` | SonarCloud | Qualité et Quality Gate | Oui (`sonar.qualitygate.wait=true`) | Le Quality Gate est le livrable ; nécessite le secret `SONAR_TOKEN`. |
+
+Les résultats se lisent dans l'onglet **Actions** (Job Summary de chaque job),
+dans les **artifacts** (rapport axe) et dans **Security > Code scanning**.
+
+Aucun scan n'est désactivé sans commentaire justificatif. Le DAST (OWASP ZAP)
+n'est lancé qu'après le déploiement, en mode baseline par défaut ; le full scan
+est limité au seul hôte `mohamed-saidi.20.74.93.53.nip.io`.
+
+Sources : docs GitHub Code scanning, OSV-Scanner (google.github.io/osv-scanner),
+gitleaks (github.com/gitleaks/gitleaks), Trivy (trivy.dev/docs), SonarQube Cloud
+(docs.sonarsource.com/sonarqube-cloud), axe-core (github.com/dequelabs/axe-core).
