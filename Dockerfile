@@ -32,6 +32,9 @@ WORKDIR /app
 # Runs as non-root -- AKS's default Pod Security Standards (baseline/restricted,
 # commonly enforced via namespace labels) reject containers that try to run as
 # UID 0.
+# Correctifs de sécurité de l'OS (openssl) publiés après la construction de l'image de base
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --system --create-home --shell /usr/sbin/nologin spring
 USER spring
 
