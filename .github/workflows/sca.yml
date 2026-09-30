@@ -1,0 +1,38 @@
+name: sca
+
+# SCA : OSV-Scanner (Google) compare les dépendances déclarées à la base OSV.
+# INFORMATIF pour l'instant : le rapport (Job Summary) et un avertissement sont
+# produits, mais le job ne casse pas. Raison : le dépôt porte un arriéré de
+# vulnérabilités connues, corrigées lors de la phase de remédiation (jour 2).
+# Une fois l'arriéré soldé, retirer `|| ...` pour rendre le scan bloquant.
+# Doc : https://google.github.io/osv-scanner/
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer osv-scanner
+        run: |
+          curl -sSL -o osv-scanner https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64
+          chmod +x osv-scanner
+      - name: Scan des dépendances
+        run: ./osv-scanner scan source --lockfile pom.xml --format table --output-file osv.txt || echo "::warning::OSV-Scanner a trouvé des vulnérabilités, voir le Job Summary"
+
+      - name: Résumé dans le Job Summary
+        if: always()
+        run: |
+          {
+            echo '### OSV-Scanner'
+            echo '```'
+            cat osv.txt 2>/dev/null || echo 'aucun rapport produit'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
