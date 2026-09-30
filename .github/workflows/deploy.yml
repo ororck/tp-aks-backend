@@ -1,0 +1,109 @@
+name: deploy
+
+# Déclenchement manuel uniquement : un merge ne déploie jamais.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  RG_NAME: msaidiRG
+  OWNER_TAG: mohamed-saidi
+  # Le cluster mutualisé n'est pas à nous et ne peut pas être tagué : il est
+  # référencé par nom (exception documentée, ADR 0005 du dépôt terraform).
+  AKS_NAME: aks-nonprod-prf2026
+  AKS_RG: rg-shared-prf2026
+  NAMESPACE: mohamed-saidi
+  STORAGE_CONTAINER: app-data
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Découvrir le registre par tags
+        run: |
+          ACR=$(az acr list -g "$RG_NAME" --query "[?tags.owner=='$OWNER_TAG' && tags.component=='acr'].name | [0]" -o tsv)
+          test -n "$ACR"
+          echo "ACR_NAME=$ACR" >> "$GITHUB_ENV"
+          echo "IMAGE=$ACR.azurecr.io/quiz-backend:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - name: Build et push de l'image
+        run: |
+          az acr login --name "$ACR_NAME"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Ouvrir les firewalls (JIT)
+        uses: ./.github/actions/jit-firewall
+        with:
+          mode: open
+          resource-group: ${{ env.RG_NAME }}
+          owner: ${{ env.OWNER_TAG }}
+
+      - name: Installer kubelogin
+        run: |
+          curl -sSLO https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip
+          unzip -q kubelogin-linux-amd64.zip
+          sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+
+      - name: Lire les secrets Key Vault et construire le Secret Kubernetes
+        run: |
+          set -euo pipefail
+          umask 077
+          KV=$(az keyvault list -g "$RG_NAME" --query "[?tags.owner=='$OWNER_TAG'].name | [0]" -o tsv)
+          SA=$(az storage account list -g "$RG_NAME" --query "[?tags.owner=='$OWNER_TAG' && tags.component=='storage'].name | [0]" -o tsv)
+          test -n "$KV" && test -n "$SA"
+          secret() { az keyvault secret show --vault-name "$KV" --name "$1" --query value -o tsv; }
+          PG_HOST=$(secret postgres-host); PG_USER=$(secret postgres-user); PG_PASS=$(secret postgres-password)
+          REDIS_HOST=$(secret redis-host); REDIS_KEY=$(secret redis-primary-key)
+          # SAS de délégation d'utilisateur : le pod n'a aucune identité Azure.
+          # Durée maximale utile de 7 jours moins une marge, renouvelée à chaque déploiement.
+          SAS=$(az storage container generate-sas --account-name "$SA" --name "$STORAGE_CONTAINER" \
+            --permissions racwdl --expiry "$(date -u -d '+6 days' +%Y-%m-%dT%H:%MZ)" \
+            --auth-mode login --as-user --https-only -o tsv)
+          for v in "$PG_PASS" "$REDIS_KEY" "$SAS"; do echo "::add-mask::$v"; done
+          {
+            echo "SPRING_DATASOURCE_URL=jdbc:postgresql://${PG_HOST}:5432/appdb?sslmode=require"
+            echo "SPRING_DATASOURCE_USERNAME=${PG_USER}"
+            echo "SPRING_DATASOURCE_PASSWORD=${PG_PASS}"
+            echo "REDIS_HOSTNAME=${REDIS_HOST}"
+            echo "REDIS_PORT=10000"
+            echo "REDIS_PASSWORD=${REDIS_KEY}"
+            echo "STORAGE_ACCOUNT_NAME=${SA}"
+            echo "STORAGE_SAS_TOKEN=${SAS}"
+            echo "STORAGE_CONTAINER_NAME=${STORAGE_CONTAINER}"
+          } > "$RUNNER_TEMP/backend.env"
+          az aks get-credentials -g "$AKS_RG" -n "$AKS_NAME" --overwrite-existing
+          kubelogin convert-kubeconfig -l azurecli
+          kubectl -n "$NAMESPACE" create secret generic backend-env \
+            --from-env-file="$RUNNER_TEMP/backend.env" --dry-run=client -o yaml | kubectl apply -f -
+          rm -f "$RUNNER_TEMP/backend.env"
+
+      - name: Déployer
+        run: |
+          envsubst '${IMAGE}' < k8s/deployment.yaml | kubectl -n "$NAMESPACE" apply -f -
+          kubectl -n "$NAMESPACE" apply -f k8s/service.yaml
+          kubectl -n "$NAMESPACE" rollout restart deployment/backend
+          kubectl -n "$NAMESPACE" rollout status deployment/backend --timeout=300s
+
+      - name: Fermer les firewalls
+        if: always()
+        uses: ./.github/actions/jit-firewall
+        with:
+          mode: close
+          resource-group: ${{ env.RG_NAME }}
+          owner: ${{ env.OWNER_TAG }}
