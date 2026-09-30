@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -32,7 +32,8 @@ jobs:
       - name: Vérifier le secret SONAR_TOKEN
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: test -n "$SONAR_TOKEN" || (echo "::error::SONAR_TOKEN absent : importer le dépôt dans SonarCloud puis ajouter le secret" && exit 1)
+        run: |
+          test -n "$SONAR_TOKEN" || { echo "::error::SONAR_TOKEN absent, importer le dépôt dans SonarCloud puis ajouter le secret"; exit 1; }
       - uses: SonarSource/sonarqube-scan-action@v8.2.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
