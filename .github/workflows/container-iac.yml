@@ -1,0 +1,68 @@
+name: container-iac
+
+# Container et IaC : Trivy couvre les Dockerfiles, les manifests Kubernetes
+# (misconfiguration) et l'image construite (CVE de l'OS et des paquets).
+# Bloquant : HIGH et CRITICAL (exit 1). Les vulnérabilités sans correctif
+# publié sont ignorées (--ignore-unfixed) car aucune action n'est possible.
+# Les MEDIUM et LOW restent hors seuil : informatifs, visibles à la demande.
+# Doc : https://trivy.dev/docs/
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Misconfigurations (Dockerfile et manifests k8s)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
+          output: trivy-config.txt
+
+      - name: Construire l'image
+        if: always()
+        run: docker build -t scan-image:ci .
+
+      - name: Vulnérabilités de l'image
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: scan-image:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+          output: trivy-image.txt
+
+      - name: Résumé dans le Job Summary
+        if: always()
+        run: |
+          {
+            echo '### Trivy config'
+            echo '```'
+            cat trivy-config.txt 2>/dev/null || echo 'aucun rapport produit'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Résumé dans le Job Summary
+        if: always()
+        run: |
+          {
+            echo '### Trivy image'
+            echo '```'
+            cat trivy-image.txt 2>/dev/null || echo 'aucun rapport produit'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
