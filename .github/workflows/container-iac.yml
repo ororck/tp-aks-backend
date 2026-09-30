@@ -4,7 +4,9 @@ name: container-iac
 # (misconfiguration) et l'image construite (CVE de l'OS et des paquets).
 # Bloquant : HIGH et CRITICAL (exit 1). Les vulnérabilités sans correctif
 # publié sont ignorées (--ignore-unfixed) car aucune action n'est possible.
-# Les MEDIUM et LOW restent hors seuil : informatifs, visibles à la demande.
+# L'image est scannée sur les paquets de l'OS uniquement (pkg-types: os) : les
+# bibliothèques applicatives sont déjà couvertes par le workflow sca, inutile
+# de les dédoubler. Les MEDIUM et LOW restent hors seuil : informatifs.
 # Doc : https://trivy.dev/docs/
 on:
   pull_request:
@@ -43,6 +45,7 @@ jobs:
           image-ref: scan-image:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          pkg-types: os
           exit-code: "1"
           format: table
           output: trivy-image.txt
