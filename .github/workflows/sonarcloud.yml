@@ -1,0 +1,45 @@
+name: sonarcloud
+
+# Qualité : SonarCloud produit le Quality Gate (livrable). Nécessite le secret
+# SONAR_TOKEN et l'import du dépôt dans SonarCloud. Sans token, le job échoue
+# franchement plutôt que de passer au vert sans rien analyser.
+# Le Quality Gate bloque (sonar.qualitygate.wait=true).
+# Doc : https://docs.sonarsource.com/sonarqube-cloud/
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Compiler
+        run: ./mvnw -B -DskipTests verify
+      - name: Vérifier le secret SONAR_TOKEN
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_TOKEN" || { echo "::error::SONAR_TOKEN absent, importer le dépôt dans SonarCloud puis ajouter le secret"; exit 1; }
+      - uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=ororck
+            -Dsonar.projectKey=ororck_tp-aks-backend
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.java.binaries=target/classes
