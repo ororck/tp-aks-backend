@@ -1,0 +1,46 @@
+name: jit-firewall
+description: Open or close the Key Vault and storage firewalls for the current runner ip.
+inputs:
+  mode:
+    description: open or close
+    required: true
+  resource-group:
+    description: Resource group holding the project resources
+    required: true
+  owner:
+    description: Value of the owner tag used to discover the resources
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        RG: ${{ inputs.resource-group }}
+        OWNER: ${{ inputs.owner }}
+      run: |
+        set -euo pipefail
+        IP="${TF_VAR_deployer_ip:-$(curl -sf https://api.ipify.org)}"
+        opened=0
+        # Resources are found by tag, they may not exist yet on a first run.
+        for kv in $(az keyvault list -g "$RG" --query "[?tags.owner=='$OWNER'].name" -o tsv); do
+          if [ "$MODE" = open ]; then
+            az keyvault network-rule add -n "$kv" --ip-address "$IP" >/dev/null
+            opened=1
+          else
+            az keyvault network-rule remove -n "$kv" --ip-address "$IP" >/dev/null || true
+          fi
+        done
+        for st in $(az storage account list -g "$RG" --query "[?tags.owner=='$OWNER'].name" -o tsv); do
+          if [ "$MODE" = open ]; then
+            az storage account network-rule add -g "$RG" --account-name "$st" --ip-address "$IP" >/dev/null
+            opened=1
+          else
+            az storage account network-rule remove -g "$RG" --account-name "$st" --ip-address "$IP" >/dev/null || true
+          fi
+        done
+        if [ "$MODE" = open ]; then
+          echo "TF_VAR_deployer_ip=$IP" >> "$GITHUB_ENV"
+          # Firewall rules take a moment to propagate.
+          if [ "$opened" = 1 ]; then sleep 45; fi
+        fi
