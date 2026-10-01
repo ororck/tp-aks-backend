@@ -41,6 +41,7 @@ app:
     api-key: ${BACKEND_API_KEY:}
   storage:
     container-name: ${STORAGE_CONTAINER_NAME:quiz-results-local}
+    create-container: ${STORAGE_CREATE_CONTAINER:true}
 
 logging:
   level:
