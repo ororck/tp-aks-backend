@@ -52,7 +52,7 @@ jobs:
 
       - name: Contexte ZAP (périmètre strict)
         run: |
-          mkdir -p zap-out && sudo chown 1000:1000 zap-out
+          mkdir -p zap-out
           HOST_RE=$(printf '%s' "$HOST" | sed 's/\./\\./g')
           # Tout ce qui n'est pas l'hôte du TP est exclu du périmètre.
           cat > zap-out/tp.context <<CTX
@@ -68,6 +68,8 @@ jobs:
             </context>
           </configuration>
           CTX
+          # L'utilisateur du conteneur ZAP (uid 1000) doit pouvoir écrire ses rapports.
+          sudo chown -R 1000:1000 zap-out
 
       - name: Scan baseline
         if: inputs.scan != 'full'
