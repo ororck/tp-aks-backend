@@ -59,8 +59,8 @@ data (certifications/modules) only ever changes via a new Flyway migration, not 
 Every call to `GET /api/quiz-sessions/{sessionId}/result` also exports that result as a JSON blob
 (`QuizResultExportService`), downloadable again through `GET /api/quiz-sessions/{sessionId}/result/export`
 — the simplest concrete use of the Storage Account provisioned for this TP. Locally this goes to Azurite;
-in prod, to the `java-uploads-<owner>` container (Terraform's `storage-java.tf`), authenticated via this
-Web App's managed identity, no account key involved either way (`shared_access_key_enabled = false` on
+in prod, to the `app-data` container (created by the infra repo's `modules/storage`), authenticated via a
+container-scoped user delegation SAS (`STORAGE_SAS_TOKEN`) generated at each deploy, no account key involved either way (`shared_access_key_enabled = false` on
 the account). A Storage outage never breaks the quiz itself — the export failing is only logged, not
 thrown; Postgres stays the source of truth for results.
 
@@ -85,11 +85,11 @@ properties, no extra profile needs activating:
 | `SPRING_DATASOURCE_PASSWORD` | PostgreSQL password |
 | `APP_CORS_ALLOWED_ORIGINS` | Allowed origin(s), e.g. the frontend Static Web App URL |
 | `REDIS_HOSTNAME` | Redis host, e.g. Azure Managed Redis's hostname |
-| `REDIS_PORT` | Redis port. Defaults to `6379` (docker-compose) locally; Azure Managed Redis exposes a different port, see the infra repo's `redis.tf` |
+| `REDIS_PORT` | Redis port. Defaults to `6379` (docker-compose) locally; Azure Managed Redis exposes a different port, see the infra repo's `modules/redis` |
 | `REDIS_PASSWORD` | Redis access key. Empty locally (docker-compose's Redis has no auth) |
 | `REDIS_SSL_ENABLED` | `true` in prod (Azure Managed Redis requires TLS), `false` locally |
-| `BACKEND_API_KEY` | Shared secret the frontend must send as `X-Api-Key` (see `ApiKeyFilter`). Left unset locally — the check is skipped. In prod it's injected from Key Vault (see `app-service-java.tf` / `keyvault.tf` in the infra repo). |
-| `STORAGE_ACCOUNT_NAME` | Storage Account name. Authenticated via this Web App's managed identity (no key) — see `SPRING_PROFILES_ACTIVE` below for why |
+| `BACKEND_API_KEY` | Shared secret the frontend must send as `X-Api-Key` (see `ApiKeyFilter`). Left unset locally — the check is skipped. In prod the value is expected from Key Vault (infra repo, `modules/keyvault`); the AKS deployment does not inject it yet. |
+| `STORAGE_ACCOUNT_NAME` | Storage Account name. Authenticated with `STORAGE_SAS_TOKEN` in prod (no account key) — see `SPRING_PROFILES_ACTIVE` below for why |
 | `STORAGE_CONTAINER_NAME` | Blob container for quiz result exports, e.g. `java-uploads-<owner>` |
 | `SPRING_PROFILES_ACTIVE` | Set to `prod` by Terraform. Deactivates the `default` profile's local-only settings (localhost datasource, Azurite connection string) — without it, Blob Storage would try to reach a local Azurite that doesn't exist in Azure |
 

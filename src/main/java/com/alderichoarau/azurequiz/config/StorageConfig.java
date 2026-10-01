@@ -27,7 +27,7 @@ public class StorageConfig {
     @Bean
     public BlobContainerClient resultsContainerClient(BlobServiceClient blobServiceClient) {
         BlobContainerClient client = blobServiceClient.getBlobContainerClient(containerName);
-        // In prod this container already exists (Terraform's storage-java.tf) -- createIfNotExists
+        // In prod this container already exists (infra repo, modules/storage) -- createIfNotExists
         // is then a fast no-op. Locally, against a fresh Azurite instance, this is what actually
         // creates it, so there's no manual setup step either way.
         if (createContainer) {
