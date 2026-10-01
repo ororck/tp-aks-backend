@@ -26,22 +26,19 @@
 		<jackson-bom.version>2.21.7</jackson-bom.version>
 		<log4j2.version>2.25.5</log4j2.version>
 		<commons-lang3.version>3.18.0</commons-lang3.version>
-		<tools-jackson-bom.version>3.1.7</tools-jackson-bom.version>
+		<nimbus-jose-jwt.version>9.37.4</nimbus-jose-jwt.version>
 		<!-- AZURE -->
-		<spring-cloud-azure-dependencies.version>7.4.0</spring-cloud-azure-dependencies.version>
+		<spring-cloud-azure-dependencies.version>6.5.0</spring-cloud-azure-dependencies.version>
 		<azure-functions-maven-plugin.version>1.42.0</azure-functions-maven-plugin.version>
 	</properties>
 
-	<!-- Jackson 3 (tools.jackson) arrives only through spring-cloud-azure and no
-	     Boot 3.5 property manages it, so its BOM is imported here. -->
+	<!-- Transitive overrides, see docs/sca-triage.md. -->
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
-				<groupId>tools.jackson</groupId>
-				<artifactId>jackson-bom</artifactId>
-				<version>${tools-jackson-bom.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
+				<groupId>com.nimbusds</groupId>
+				<artifactId>nimbus-jose-jwt</artifactId>
+				<version>${nimbus-jose-jwt.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

@@ -94,3 +94,12 @@ Honnêteté sur la portée : dans les deux cas le composant est **exposé** mais
 | `tools.jackson.core:jackson-databind` | 3.1.4 | 3.1.6 | 3.1.6 | Moyenne (5.6) | GHSA-gx83-3vf8-gh7j / CVE-2026-83557 | patch | Sur le classpath (transitif spring-cloud-azure 7.4.0), usage à confirmer | Inconnu: dépend du default typing de `GenericJackson2JsonRedisSerializer` (`CacheConfig`), données lues dans le Redis de l'app (aucun import `tools.jackson` dans `src/`) | 2 |
 | `tools.jackson.core:jackson-databind` | 3.1.4 | 3.1.5 | 3.1.6 | Moyenne (5.3) | GHSA-vvgp-rfg2-7rr6 / CVE-2026-77310 | patch | Sur le classpath (transitif spring-cloud-azure 7.4.0), usage à confirmer | Non: aucun champ `java.net.URL`/`InetAddress` dans `src/` (aucun import `tools.jackson` dans `src/`) | 2 |
 | `tools.jackson.core:jackson-databind` | 3.1.4 | 3.1.6 | 3.1.6 | Moyenne (5.3) | GHSA-wjgm-6hv5-3cvf / CVE-2026-19032 | patch | Sur le classpath (transitif spring-cloud-azure 7.4.0), usage à confirmer | Non: aucun champ `java.nio.file.Path` dans `src/` (aucun import `tools.jackson` dans `src/`) | 2 |
+
+## spring-cloud-azure aligné sur Spring Boot 3.5
+
+`spring-cloud-azure` 7.4.0 cible Spring Boot 4 et apporte `spring-boot-jackson`,
+dont l'auto-configuration entre en conflit avec celle de Boot 3.5.16 : le pod
+crashe au démarrage (`BeanDefinitionOverrideException: jsonComponentModule`).
+La version 6.5.0 est la lignée compatible Boot 3.5. L'import du BOM
+`tools.jackson` n'a plus d'objet. `nimbus-jose-jwt` est forcé en 9.37.4
+(GHSA-xwmg-2g98-w7v9).
