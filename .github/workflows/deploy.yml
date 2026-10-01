@@ -98,7 +98,7 @@ jobs:
           envsubst '${IMAGE}' < k8s/deployment.yaml | kubectl -n "$NAMESPACE" apply -f -
           kubectl -n "$NAMESPACE" apply -f k8s/service.yaml
           kubectl -n "$NAMESPACE" rollout restart deployment/backend
-          kubectl -n "$NAMESPACE" rollout status deployment/backend --timeout=300s
+          kubectl -n "$NAMESPACE" rollout status deployment/backend --timeout=240s
 
       - name: Diagnostic du rollout
         if: failure()
@@ -106,7 +106,10 @@ jobs:
           kubectl -n "$NAMESPACE" get pods -o wide || true
           kubectl -n "$NAMESPACE" describe deployment/backend | tail -40 || true
           kubectl -n "$NAMESPACE" describe pods -l app=backend | tail -60 || true
-          kubectl -n "$NAMESPACE" logs -l app=backend --tail=80 --all-containers || true
+          for p in $(kubectl -n "$NAMESPACE" get pods -l app=backend -o name); do
+            echo "== $p (conteneur précédent)"
+            kubectl -n "$NAMESPACE" logs "$p" --previous --tail=150 | grep -vE '^\s+at ' | head -80 || true
+          done
 
       - name: Fermer les firewalls
         if: always()
