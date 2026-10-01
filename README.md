@@ -152,13 +152,24 @@ retrouvées par tags (`owner`, `component`), rien n'est codé en dur.
 | `secrets` | gitleaks (binaire `gitleaks dir . --redact -v`) | Secrets dans le code | Oui | Un secret commité est un incident, code de sortie 1 documenté par gitleaks. `--redact` masque la valeur. |
 | `container-iac` | Trivy | Misconfigurations (Dockerfile, k8s) et CVE de l'image (paquets OS) | Oui : HIGH et CRITICAL | Seuil recommandé par Trivy pour un gate CI ; `--ignore-unfixed` écarte ce qu'on ne peut pas corriger ; les bibliothèques applicatives sont couvertes par `sca`. |
 | `sonarcloud` | SonarCloud | Qualité et Quality Gate | Oui (`sonar.qualitygate.wait=true`) | Le Quality Gate est le livrable ; nécessite le secret `SONAR_TOKEN`. |
+| `dast` | OWASP ZAP (baseline, ou full scan sur demande) | Failles observables sur l'application déployée | Non | Lancé à la main après un déploiement : le DAST exige une application en ligne. `-I` : les alertes n'échouent pas le job, un scan passif produit des constats à trier plutôt qu'une barrière fiable. Rapport HTML et JSON en artifact. |
 
 Les résultats se lisent dans l'onglet **Actions** (Job Summary de chaque job),
 dans les **artifacts** (rapport axe) et dans **Security > Code scanning**.
 
-Aucun scan n'est désactivé sans commentaire justificatif. Le DAST (OWASP ZAP)
-n'est lancé qu'après le déploiement, en mode baseline par défaut ; le full scan
-est limité au seul hôte nip.io de l'application (`mohamed-saidi.<ip d'ingress>.nip.io`, IP lue dynamiquement, voir l'output Terraform `ingress_host`).
+Aucun scan n'est désactivé sans commentaire justificatif.
+
+Le DAST (OWASP ZAP, workflow `dast`) n'est lancé qu'après le déploiement, à la
+main, en mode **baseline** par défaut (passif : il observe les réponses sans
+attaquer). Le **full scan** est un scan actif, il envoie des requêtes
+d'attaque. Il n'est donc autorisé que scopé strictement à l'hôte du TP
+(`mohamed-saidi.<ip d'ingress>.nip.io`, IP lue dynamiquement, voir l'output
+Terraform `ingress_host`), pour une raison précise : **l'ingress nginx est
+partagé par toute la promotion**. Un scan actif large frapperait le contrôleur
+nginx des autres apprenants. Le workflow garantit ce périmètre de trois façons :
+un garde-fou refuse toute cible qui n'est pas `mohamed-saidi.*.nip.io`, un
+contexte ZAP généré à l'exécution n'inclut que cet hôte et exclut tout le
+reste, et le full scan ne se lance que sur choix explicite (`scan: full`).
 
 Sources : docs GitHub Code scanning, OSV-Scanner (google.github.io/osv-scanner),
 gitleaks (github.com/gitleaks/gitleaks), Trivy (trivy.dev/docs), SonarQube Cloud
