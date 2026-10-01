@@ -148,7 +148,7 @@ retrouvées par tags (`owner`, `component`), rien n'est codé en dur.
 | Workflow | Outil | Rôle | Bloquant ? | Justification |
 |---|---|---|---|---|
 | `sast` | CodeQL | Analyse statique du code source | Non (résultats dans Security > Code scanning) | La doc GitHub traite les alertes comme des résultats à trier dans l'onglet Security, avec vérification « Code scanning results » sur les PR. |
-| `sca` | OSV-Scanner | Dépendances vulnérables connues | Non pour l'instant | Arriéré de vulnérabilités à solder lors de la remédiation (jour 2), puis le scan deviendra bloquant. Rapport dans le Job Summary. |
+| `sca` | OSV-Scanner | Dépendances vulnérables connues | Oui | Arriéré soldé à la remédiation (0 vulnérabilité sur `pom.xml`, contre 32 lignes au triage), le scan est devenu bloquant pour empêcher toute régression. Rapport dans le Job Summary. |
 | `secrets` | gitleaks (binaire `gitleaks dir . --redact -v`) | Secrets dans le code | Oui | Un secret commité est un incident, code de sortie 1 documenté par gitleaks. `--redact` masque la valeur. |
 | `container-iac` | Trivy | Misconfigurations (Dockerfile, k8s) et CVE de l'image (paquets OS) | Oui : HIGH et CRITICAL | Seuil recommandé par Trivy pour un gate CI ; `--ignore-unfixed` écarte ce qu'on ne peut pas corriger ; les bibliothèques applicatives sont couvertes par `sca`. |
 | `sonarcloud` | SonarCloud | Qualité et Quality Gate | Oui (`sonar.qualitygate.wait=true`) | Le Quality Gate est le livrable ; nécessite le secret `SONAR_TOKEN`. |
