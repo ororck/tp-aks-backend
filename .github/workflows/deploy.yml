@@ -86,6 +86,7 @@ jobs:
             echo "STORAGE_ACCOUNT_NAME=${SA}"
             echo "STORAGE_SAS_TOKEN=${SAS}"
             echo "STORAGE_CONTAINER_NAME=${STORAGE_CONTAINER}"
+            echo "STORAGE_CREATE_CONTAINER=false"
           } > "$RUNNER_TEMP/backend.env"
           az aks get-credentials -g "$AKS_RG" -n "$AKS_NAME" --overwrite-existing
           kubelogin convert-kubeconfig -l azurecli

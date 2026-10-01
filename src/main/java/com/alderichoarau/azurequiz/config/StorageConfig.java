@@ -19,13 +19,20 @@ public class StorageConfig {
     @Value("${app.storage.container-name}")
     private String containerName;
 
+    // Off on AKS: the pod only holds a container-scoped SAS, which cannot create containers
+    // (an account-level operation), and Terraform already creates it.
+    @Value("${app.storage.create-container:true}")
+    private boolean createContainer;
+
     @Bean
     public BlobContainerClient resultsContainerClient(BlobServiceClient blobServiceClient) {
         BlobContainerClient client = blobServiceClient.getBlobContainerClient(containerName);
         // In prod this container already exists (Terraform's storage-java.tf) -- createIfNotExists
         // is then a fast no-op. Locally, against a fresh Azurite instance, this is what actually
         // creates it, so there's no manual setup step either way.
-        client.createIfNotExists();
+        if (createContainer) {
+            client.createIfNotExists();
+        }
         return client;
     }
 }
