@@ -46,7 +46,9 @@ jobs:
           # Garde-fou : jamais une autre cible que l'hôte du TP.
           case "$HOST" in "$OWNER_TAG".*.nip.io) ;; *) echo "hôte inattendu : $HOST" >&2; exit 1 ;; esac
           echo "HOST=$HOST" >> "$GITHUB_ENV"
-          echo "TARGET=http://$HOST$TARGET_PATH" >> "$GITHUB_ENV"
+          # NOSONAR : l'ingress du TP n'a pas de TLS (nip.io, ingress mutualisé par la
+          # promotion), la cible ne peut être qu'en http.
+          echo "TARGET=http://$HOST$TARGET_PATH" >> "$GITHUB_ENV" # NOSONAR
 
       - name: Contexte ZAP (périmètre strict)
         run: |
