@@ -25,7 +25,7 @@ Patchs sur la même ligne, composants sans couplage avec le code applicatif. Sur
 
 | Propriété | Actuelle | Cible | Efface |
 |---|---|---|---|
-| `tomcat.version` | 10.1.55 | 10.1.58 | 3 critiques Tomcat |
+| `tomcat.version` | 10.1.55 | 10.1.59 | 3 critiques Tomcat |
 | `netty.version` | 4.1.135.Final | 4.1.137.Final | 1 critique (netty-handler) + 13 autres |
 | `postgresql.version` | 42.7.11 | 42.7.12 | 1 haute |
 
@@ -50,7 +50,7 @@ Point d'attention hors CVE : `spring-cloud-azure` 7.4.0 (mergé par Dependabot) 
 
 Lecture retenue : **une faille par catégorie de sévérité présente dans le dépôt** (critique, haute), choisie parmi les lots 1 et 2. Le lot 3 est écarté par définition et ne fournit aucune preuve.
 
-1. **Critique : `tomcat-embed-core` 10.1.55 vers 10.1.58, GHSA-gcx9-497g-6cp6 / CVE-2026-65182** (contournement de security-constraint).
+1. **Critique : `tomcat-embed-core` 10.1.55 vers 10.1.59, GHSA-gcx9-497g-6cp6 / CVE-2026-65182** (contournement de security-constraint).
    - Composant le plus exposé de l'app (serveur HTTP), patch sans rupture, une seule ligne `tomcat.version`.
    - Le même bump efface GHSA-9xv2-5v5q-p794 et GHSA-h3x4-894j-xpx5. Le lot 1 complet efface les 4 critiques.
 2. **Haute : `jackson-databind` 2.21.4 vers 2.21.6, GHSA-q4xh-88c3-wmh7 / CVE-2026-68497** (nombre non borné à l'analyse de `Duration`/`XMLGregorianCalendar`).
@@ -63,9 +63,9 @@ Honnêteté sur la portée : dans les deux cas le composant est **exposé** mais
 | Paquet | Version actuelle | Version corrigée (cette faille) | Cible du lot (toutes failles) | Sévérité (CVSS) | Identifiants | Correctif | Chargé en runtime ? | Chemin vulnérable exercé ? | Lot |
 |---|---|---|---|---|---|---|---|---|---|
 | `io.netty:netty-handler` | 4.1.135.Final | 4.1.137.Final | 4.1.137.Final | Critique (9.1) | GHSA-c4c3-7fpv-j4q5 / CVE-2026-75595 | patch | Oui, en client seulement (Lettuce, azure-core-http-netty) | Non: `SniHandler` est côté serveur, l'app n'ouvre aucun serveur Netty | 1 |
-| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.58 | 10.1.58 | Critique (9.8) | GHSA-9xv2-5v5q-p794 / CVE-2026-65905 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
-| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.58 | 10.1.58 | Critique (9.1) | GHSA-gcx9-497g-6cp6 / CVE-2026-65182 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
-| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.58 | 10.1.58 | Critique (9.1) | GHSA-h3x4-894j-xpx5 / CVE-2026-68525 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
+| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.59 | 10.1.59 | Critique (9.8) | GHSA-9xv2-5v5q-p794 / CVE-2026-65905 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
+| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.59 | 10.1.59 | Critique (9.1) | GHSA-gcx9-497g-6cp6 / CVE-2026-65182 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
+| `org.apache.tomcat.embed:tomcat-embed-core` | 10.1.55 | 10.1.59 | 10.1.59 | Critique (9.1) | GHSA-h3x4-894j-xpx5 / CVE-2026-68525 | patch | Oui, serveur HTTP embarqué (jar) | Non: DIGEST, FORM et security-constraints non utilisés (auth = `ApiKeyFilter` maison) | 1 |
 | `com.fasterxml.jackson.core:jackson-databind` | 2.21.4 | 2.21.6 | 2.21.6 | Haute (7.5) | GHSA-q4xh-88c3-wmh7 / CVE-2026-68497 | patch | Oui, JSON des requêtes/réponses et cache Redis (jar) | Non: aucun DTO `Duration`/`XMLGregorianCalendar` (`Duration` sert au TTL du cache) | 2 |
 | `io.netty:netty-codec` | 4.1.135.Final | 4.1.136.Final | 4.1.137.Final | Haute (8.7) | GHSA-558v-64gr-wgg4 / CVE-2026-59901 | patch | Oui, en client seulement (Lettuce, azure-core-http-netty) | Non: `Bzip2Decoder` non câblé par les clients Azure/Lettuce | 1 |
 | `io.netty:netty-codec-http` | 4.1.135.Final | 4.1.136.Final | 4.1.137.Final | Haute (7.5) | GHSA-6jqx-86gh-f27w / CVE-2026-55831 | patch | Oui, en client seulement (Lettuce, azure-core-http-netty) | Improbable: client sortant, pairs de confiance (Azure Storage, Redis); décodeurs SPDY/CORS/multipart serveur non utilisés | 1 |
