@@ -1,0 +1,95 @@
+name: dast
+
+# DAST OWASP ZAP sur l'application déployée. Déclenchement manuel uniquement :
+# l'application doit être déployée. Baseline par défaut (passif, non intrusif).
+# Le full scan est actif : il n'est autorisé que scopé strictement à l'hôte du
+# TP, car l'ingress nginx est partagé par toute la promotion (voir README).
+on:
+  workflow_dispatch:
+    inputs:
+      scan:
+        description: baseline (par défaut) ou full (actif, scopé à l'hôte du TP)
+        type: choice
+        options: [baseline, full]
+        default: baseline
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  OWNER_TAG: mohamed-saidi
+  AKS_NAME: aks-nonprod-prf2026
+  AKS_RG: rg-shared-prf2026
+  TARGET_PATH: /api/
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Résoudre l'hôte de l'ingress
+        run: |
+          NODE_RG=$(az aks show -g "$AKS_RG" -n "$AKS_NAME" --query nodeResourceGroup -o tsv)
+          IP=$(az network public-ip list -g "$NODE_RG" \
+            --query "[?tags.\"k8s-azure-service\"=='app-routing-system/nginx'].ipAddress | [0]" -o tsv)
+          test -n "$IP"
+          HOST="$OWNER_TAG.$IP.nip.io"
+          # Garde-fou : jamais une autre cible que l'hôte du TP.
+          case "$HOST" in "$OWNER_TAG".*.nip.io) ;; *) echo "hôte inattendu : $HOST" >&2; exit 1 ;; esac
+          echo "HOST=$HOST" >> "$GITHUB_ENV"
+          echo "TARGET=http://$HOST$TARGET_PATH" >> "$GITHUB_ENV"
+
+      - name: Contexte ZAP (périmètre strict)
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          HOST_RE=$(printf '%s' "$HOST" | sed 's/\./\\./g')
+          # Tout ce qui n'est pas l'hôte du TP est exclu du périmètre.
+          cat > zap-out/tp.context <<CTX
+          <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+          <configuration>
+            <context>
+              <name>tp</name>
+              <desc>Hôte du TP uniquement</desc>
+              <inscope>true</inscope>
+              <incregexes>^http://${HOST_RE}/.*</incregexes>
+              <excregexes>^(?!http://${HOST_RE}/).*</excregexes>
+              <tech><include>Language</include><include>OS</include><include>Db</include><include>WS</include><include>SCM</include></tech>
+            </context>
+          </configuration>
+          CTX
+
+      - name: Scan baseline
+        if: inputs.scan != 'full'
+        # -I : les alertes ne font pas échouer le job (informatif), voir README.
+        run: |
+          docker run --rm -v "$PWD/zap-out:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap-baseline.py -t "$TARGET" -n tp.context -I -r zap-report.html -J zap-report.json
+
+      - name: Scan complet (actif, scopé)
+        if: inputs.scan == 'full'
+        run: |
+          docker run --rm -v "$PWD/zap-out:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap-full-scan.py -t "$TARGET" -n tp.context -I -r zap-report.html -J zap-report.json
+
+      - name: Résumé
+        if: always()
+        run: |
+          {
+            echo "### ZAP ${{ inputs.scan }} sur $HOST"
+            echo "Périmètre : $HOST uniquement (contexte ZAP, tout le reste exclu)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: zap-out/zap-report.*
