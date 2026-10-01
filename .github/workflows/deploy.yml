@@ -100,6 +100,14 @@ jobs:
           kubectl -n "$NAMESPACE" rollout restart deployment/backend
           kubectl -n "$NAMESPACE" rollout status deployment/backend --timeout=300s
 
+      - name: Diagnostic du rollout
+        if: failure()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+          kubectl -n "$NAMESPACE" describe deployment/backend | tail -40 || true
+          kubectl -n "$NAMESPACE" describe pods -l app=backend | tail -60 || true
+          kubectl -n "$NAMESPACE" logs -l app=backend --tail=80 --all-containers || true
+
       - name: Fermer les firewalls
         if: always()
         uses: ./.github/actions/jit-firewall
