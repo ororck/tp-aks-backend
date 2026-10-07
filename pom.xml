@@ -28,7 +28,7 @@
 		<commons-lang3.version>3.18.0</commons-lang3.version>
 		<nimbus-jose-jwt.version>9.37.4</nimbus-jose-jwt.version>
 		<!-- AZURE -->
-		<spring-cloud-azure-dependencies.version>6.5.0</spring-cloud-azure-dependencies.version>
+		<spring-cloud-azure-dependencies.version>7.4.0</spring-cloud-azure-dependencies.version>
 		<azure-functions-maven-plugin.version>1.42.0</azure-functions-maven-plugin.version>
 	</properties>
 
