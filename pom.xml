@@ -26,7 +26,7 @@
 		<jackson-bom.version>2.21.7</jackson-bom.version>
 		<log4j2.version>2.25.5</log4j2.version>
 		<commons-lang3.version>3.18.0</commons-lang3.version>
-		<nimbus-jose-jwt.version>9.37.4</nimbus-jose-jwt.version>
+		<nimbus-jose-jwt.version>10.10</nimbus-jose-jwt.version>
 		<!-- AZURE -->
 		<spring-cloud-azure-dependencies.version>6.5.0</spring-cloud-azure-dependencies.version>
 		<azure-functions-maven-plugin.version>1.42.0</azure-functions-maven-plugin.version>
